@@ -29,43 +29,32 @@ public extension UIColor {
     }
 }
 
-public extension UIFont {
-    enum FontType {
-        case helveticaNeueBold(CGFloat)
-        case helveticaNeueRegular(CGFloat)
-        case helveticaNeueLight(CGFloat)
-        case helveticaNeueMedium(CGFloat)
-        case helveticaNeueThin(CGFloat)
-    }
+public protocol Style {
+    var color: UIColor { get }
     
-    convenience init(_ type: FontType) {
-        switch type {
-        case let .helveticaNeueBold(size):
-            self.init(name: "HelveticaNeue-Bold", size: size)!
-        case let .helveticaNeueRegular(size):
-            self.init(name: "HelveticaNeue", size: size)!
-        case let .helveticaNeueLight(size):
-            self.init(name: "HelveticaNeue-Light", size: size)!
-        case let .helveticaNeueMedium(size):
-            self.init(name: "HelveticaNeue-Medium", size: size)!
-        case let .helveticaNeueThin(size):
-            self.init(name: "HelveticaNeue-Thin", size: size)!
-        }
-    }
+    var bgColor: UIColor { get }
+    
+    var font: UIFont { get }
 }
 
-public enum Style {
-    case blackRegular18
+enum Styles: Style {
+    case whiteBold15, blueWhiteRegular18, blackRegular18
     
     var color: UIColor {
         switch self {
-        default:
+        case .whiteBold15:
+            return .white
+        case .blueWhiteRegular18:
+            return .blue
+        case .blackRegular18:
             return .black
         }
     }
     
     var bgColor: UIColor {
         switch self {
+        case .blueWhiteRegular18:
+            return .white
         default:
             return .clear
         }
@@ -73,33 +62,10 @@ public enum Style {
     
     var font: UIFont {
         switch self {
+        case .whiteBold15:
+            return .systemFont(ofSize: 15, weight: .bold)
         default:
-            return UIFont(.helveticaNeueRegular(18))
-        }
-    }
-}
-
-public enum ButtonStyle {
-    case blueWhiteRegular18, whiteBold15
-    
-    var color: UIColor {
-        switch self {
-        case .whiteBold15: return .white
-        default: return .blue
-        }
-    }
-    
-    var bgColor: UIColor {
-        switch self {
-        case .blueWhiteRegular18: return .white
-        default: return .clear
-        }
-    }
-    
-    var font: UIFont {
-        switch self {
-        case .whiteBold15: return UIFont(.helveticaNeueBold(15))
-        default: return UIFont(.helveticaNeueRegular(18))
+            return .systemFont(ofSize: 18, weight: .regular)
         }
     }
 }

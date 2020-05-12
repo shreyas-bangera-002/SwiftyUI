@@ -42,7 +42,7 @@ open class ViewController<T: ViewModel>: BaseController, UIImagePickerController
     }
     
     private let noNetworkView = UILabel(
-        style: .blackRegular18,
+        style: Styles.blackRegular18,
         title: "No network available!",
         isMultiline: true,
         alignment: .center

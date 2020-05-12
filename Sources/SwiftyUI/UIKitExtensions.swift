@@ -43,18 +43,18 @@ public struct StackConfig {
 extension UIButton {
     
     @discardableResult
-    public convenience init(style: ButtonStyle, title: String? = nil, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
+    public convenience init(style: Style, title: String? = nil, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
         self.init(frame: .zero)
         setTitle(title)
         configure(style: style, image: image, tint: tint, alignment: alignment, layout: layout, onTap: onTap)
     }
     
-    public convenience init(style: ButtonStyle, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
+    public convenience init(style: Style, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
         self.init(frame: .zero)
         configure(style: style, image: image, tint: tint, alignment: alignment, layout: layout, onTap: onTap)
     }
     
-    private func configure(style: ButtonStyle, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
+    private func configure(style: Style, image: ImageNameable? = nil, tint: UIColor? = nil, alignment: ButtonAlignment? = nil, layout: Layout? = nil, onTap: FinallyBlock = nil) {
         self.image(image, tint: tint)
         addStyle(style)
         self.onTap { _ in onTap?() }
@@ -77,7 +77,7 @@ extension UIButton {
         }
     }
     
-    func addStyle(_ style: ButtonStyle) {
+    func addStyle(_ style: Style) {
         titleLabel?.font = style.font
         titleColor(style.color)
         backgroundColor = style.bgColor
@@ -186,7 +186,7 @@ extension UITextField {
         inputAccessoryView = UIToolbar(frame: .init(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 60)).then {
             var items = [UIBarButtonItem]()
             if let text = leftText {
-                items.append(UIBarButtonItem(customView: UIButton(style: .blueWhiteRegular18, title: text, onTap: leftAction)))
+                items.append(UIBarButtonItem(customView: UIButton(style: Styles.blueWhiteRegular18, title: text, onTap: leftAction)))
             }
             if let rightText = rightText {
                 items.append(contentsOf: [
@@ -280,7 +280,7 @@ public enum Position {
 }
 
 public extension UIButton {
-    static func create(_ style: ButtonStyle,_ text: String? = nil, image: ImageNameable? = nil, height: CGFloat = 44, position: Position = .fill(0,0), alignment: ButtonAlignment? = nil, onTap: FinallyBlock = nil) -> UIButton {
+    static func create(_ style: Style,_ text: String? = nil, image: ImageNameable? = nil, height: CGFloat = 44, position: Position = .fill(0,0), alignment: ButtonAlignment? = nil, onTap: FinallyBlock = nil) -> UIButton {
         UIButton(
             style: style,
             title: text,

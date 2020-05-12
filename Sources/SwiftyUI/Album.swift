@@ -39,7 +39,7 @@ public class AlbumController: LightController<AlbumViewModel> {
             }
         }
         UIButton(
-            style: .whiteBold15,
+            style: Styles.whiteBold15,
             title: "CLOSE",
             layout: { $0.top(20, context: .safe).right(20) },
             onTap: { [weak self] in self?.dismiss(animated: true, completion: nil) }
