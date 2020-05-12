@@ -158,7 +158,7 @@ extension UIImageView {
 }
 
 extension UITextField {
-    public convenience init(style: Style, text: String? = nil, placeholder: String? = nil, placeholderStyle: Style, keyboard: UIKeyboardType = .default, layout: Layout? = nil) {
+    public convenience init(style: Style, text: String? = nil, placeholder: String? = nil, placeholderStyle: Style, keyboard: UIKeyboardType = .default, leftPadding: CGFloat = 0, layout: Layout? = nil) {
         self.init(frame: .zero)
         self.text = text
         textColor = style.color
@@ -174,6 +174,7 @@ extension UITextField {
             ])
         }
         self.layout = layout
+        addLeftPadding(leftPadding)
     }
     
     public func addLeftPadding(_ value: CGFloat) {
