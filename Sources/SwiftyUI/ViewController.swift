@@ -109,7 +109,6 @@ open class ViewController<T: ViewModel>: BaseController, UIImagePickerController
     
     override open func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        setupNavigationBar()
         viewModel.refresh()
         tokens.append(NotificationCenter.observe(.networkChanged) { [weak self] in
             self?.showNoNetworkView(!($0?[.isReachable]).boolValue)
@@ -164,10 +163,6 @@ open class ViewController<T: ViewModel>: BaseController, UIImagePickerController
     public func stopActivity() {
         overlay.isHidden = true
         activityIndicator.stopAnimating()
-    }
-    
-    open func setupNavigationBar() {
-        navigationController?.isNavigationBarHidden = true
     }
     
     open func setupVM() {}
