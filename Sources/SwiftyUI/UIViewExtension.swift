@@ -2,8 +2,8 @@
 //  UIViewExtension.swift
 //  Plowz
 //
-//  Created by SpringRole on 07/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 07/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import UIKit
@@ -247,6 +247,12 @@ extension UIView {
     }
     
     @discardableResult
+    public func widthEqualsHeight() -> UIView {
+        widthAnchor.constraint(equalTo: heightAnchor).isActive = true
+        return self
+    }
+    
+    @discardableResult
     public func square() -> UIView {
         widthAnchor.constraint(equalTo: heightAnchor, multiplier: 1).isActive = true
         return self
@@ -330,6 +336,21 @@ extension UIView {
         return self
     }
     
+    public func visibilityToggle() {
+        alpha = alpha == 0 ? 1 : 0
+    }
+    
+    public func animateVisibilityToggle(_ completion: FinallyBlock = nil) {
+        let newAlpha: CGFloat = alpha == 0 ? 1 : 0
+        UIView.animate(
+            withDuration: 0.3,
+            animations: { [weak self] in
+                self?.alpha = newAlpha
+            },
+            completion: {_ in completion?() }
+        )
+    }
+    
     public func scrollContainer(_ direction: ScrollDirection) -> UIView {
         let scrollView = UIScrollView {
             $0.showsHorizontalScrollIndicator = false
@@ -385,15 +406,16 @@ extension UIView {
     }
     
     @discardableResult
-    public func dropShadow() -> Self {
-        layer.shadowOpacity = 0.3
-        layer.shadowOffset = .init(width: 0, height: 2)
+    public func dropShadow(_ color: UIColor = .black, opacity: Float = 0.3, offset: CGSize = .init(width: 0, height: 2)) -> Self {
+        layer.shadowColor = color.cgColor
+        layer.shadowOpacity = opacity
+        layer.shadowOffset = offset
         return self
     }
     
     @discardableResult
-    public func shadow() -> Self {
-        layer.shadowOpacity = 0.1
+    public func shadow(opacity: Float = 0.1) -> Self {
+        layer.shadowOpacity = opacity
         layer.shadowOffset = .zero
         layer.shadowRadius = 4
         return self
@@ -426,9 +448,11 @@ extension UIView {
     }
     
     @discardableResult
-    public func addGradient(_ colors: UIColor...) -> FinallyBlock {
+    public func addGradient(_ colors: UIColor..., startPoint: CGPoint = .init(x: 0.5, y: 0), endPoint: CGPoint = .init(x: 0.5, y: 1)) -> FinallyBlock {
         let gradient = CAGradientLayer()
         gradient.colors = colors.map { $0.cgColor }
+        gradient.startPoint = startPoint
+        gradient.endPoint = endPoint
         layer.addSublayer(gradient)
         return { [weak self] in gradient.frame = self?.bounds ?? .zero }
     }
@@ -458,10 +482,10 @@ extension UIView {
         }
     }
     
-    public static func hDivider(h: CGFloat = 0) -> UIView {
+    public static func hDivider(h: CGFloat = 0, height: CGFloat = 1) -> UIView {
         UIView {
             $0.backgroundColor = .lightGray
-            $0.layout = { $0.height(1).left(h).right(h).top().bottom() }
+            $0.layout = { $0.height(height).left(h).right(h).top().bottom() }
         }
     }
     
@@ -495,15 +519,40 @@ extension UIView {
         return self
     }
     
-    public static var header: (view: UIView, configure: (UITableView) -> Void) {
+    public static var header: (view: UIView, configure: (UITableView?) -> Void) {
         let headerView = UIView()
         return (headerView, { table in
             let size = headerView.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
             if headerView.frame.size.height != size.height {
                 headerView.frame.size.height = size.height
-                table.tableHeaderView = headerView
+                table?.tableHeaderView = headerView
             }
         })
+    }
+    
+    public func roundCorners(_ corners: CACornerMask, radius: CGFloat) {
+        if #available(iOS 11, *) {
+            self.layer.cornerRadius = radius
+            self.layer.maskedCorners = corners
+        } else {
+            var cornerMask = UIRectCorner()
+            if(corners.contains(.layerMinXMinYCorner)){
+                cornerMask.insert(.topLeft)
+            }
+            if(corners.contains(.layerMaxXMinYCorner)){
+                cornerMask.insert(.topRight)
+            }
+            if(corners.contains(.layerMinXMaxYCorner)){
+                cornerMask.insert(.bottomLeft)
+            }
+            if(corners.contains(.layerMaxXMaxYCorner)){
+                cornerMask.insert(.bottomRight)
+            }
+            let path = UIBezierPath(roundedRect: self.bounds, byRoundingCorners: cornerMask, cornerRadii: CGSize(width: radius, height: radius))
+            let mask = CAShapeLayer()
+            mask.path = path.cgPath
+            self.layer.mask = mask
+        }
     }
 }
 
@@ -560,29 +609,28 @@ public extension UIView {
 }
 
 @discardableResult
-public func vStack(_ views: UIView?..., layout: @escaping Layout, config: StackConfig = .zero) -> UIStackView {
+public func vStack(_ views: UIView?..., layout: @escaping Layout = { $0.fillContainer() }, config: StackConfig = .zero) -> UIStackView {
     stack(views, axis: .vertical, config: config, layout: layout)
 }
 
 @discardableResult
-public func hStack(_ views: UIView?..., layout: @escaping Layout, config: StackConfig = .zero) -> UIStackView {
+public func hStack(_ views: UIView?..., layout: @escaping Layout = { $0.fillContainer() }, config: StackConfig = .zero) -> UIStackView {
     stack(views, axis: .horizontal, config: config, layout: layout)
 }
 
 @discardableResult
-public func vStack(_ views: [UIView?], layout: @escaping Layout, config: StackConfig = .zero) -> UIStackView {
+public func vStack(_ views: [UIView?], layout: @escaping Layout = { $0.fillContainer() }, config: StackConfig = .zero) -> UIStackView {
     stack(views, axis: .vertical, config: config, layout: layout)
 }
 
 @discardableResult
-public func hStack(_ views: [UIView?], layout: @escaping Layout, config: StackConfig = .zero) -> UIStackView {
+public func hStack(_ views: [UIView?], layout: @escaping Layout = { $0.fillContainer() }, config: StackConfig = .zero) -> UIStackView {
     stack(views, axis: .horizontal, config: config, layout: layout)
 }
 
 @discardableResult
 public func stack(_ views: [UIView?], axis: NSLayoutConstraint.Axis, config: StackConfig = .zero, layout: @escaping Layout) -> UIStackView {
-    let subViews = config.spacing != 0 || config.removeBuffer || [UIStackView.Distribution.fillEqually, .fillProportionally].contains(config.distribution) ? views : views + [UIView.space()]
-    return UIStackView(arrangedSubviews: subViews
+    UIStackView(arrangedSubviews: views
         .compactMap { $0 }.map { view in UIView { $0.sv(view) }})
         .then {
             $0.axis = axis
@@ -599,15 +647,20 @@ public func stack(_ views: [UIView?], axis: NSLayoutConstraint.Axis, config: Sta
     }
 }
 
-public func shadowContainer(radius: CGFloat = 0, opacity: Float = 0.1, offset: CGSize = .zero, child: UIView, layout: @escaping Layout) -> UIView {
+public func Container(color: UIColor = .white, radius: CGFloat = 0, opacity: Float = 0.1, offset: CGSize = .zero, child: UIView, layout: @escaping Layout = { $0.fillContainer() }) -> UIView {
     UIView {
+        $0.backgroundColor = color
         $0.layer.cornerRadius = radius
-        $0.backgroundColor = .white
         $0.layer.shadowOpacity = opacity
         $0.layer.shadowRadius = 4
         $0.layer.shadowOffset = offset
         $0.layout = layout
-        $0.sv(child)
+        UIView {
+            $0.layer.cornerRadius = radius
+            $0.layout = { $0.fillContainer() }
+            $0.sv(child)
+            $0.clipsToBounds = true
+        }.add(to: $0)
     }
 }
 
@@ -628,5 +681,9 @@ public extension UIEdgeInsets {
     
     init(h: CGFloat = 0, v: CGFloat = 0) {
         self.init(top: v, left: h, bottom: v, right: h)
+    }
+    
+    init(t: CGFloat = 0, l: CGFloat = 0, b: CGFloat = 0, r: CGFloat = 0) {
+        self.init(top: t, left: l, bottom: b, right: r)
     }
 }

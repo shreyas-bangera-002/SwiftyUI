@@ -1,8 +1,8 @@
 //
 //  Album.swift
-//  
 //
-//  Created by SpringRole on 08/04/2020.
+//
+//  Created by Shreyas Bangera on 08/04/2020.
 //
 
 import UIKit
@@ -41,7 +41,7 @@ public class AlbumController: LightController<AlbumViewModel> {
         UIButton(
             style: Styles.whiteBold15,
             title: "CLOSE",
-            layout: { $0.top(20, context: .safe).right(20) },
+            layout: { $0.top(20, context: .safe).right(20).dropShadow(opacity: 1, offset: .zero) },
             onTap: { [weak self] in self?.dismiss(animated: true, completion: nil) }
         ).add(to: view)
     }

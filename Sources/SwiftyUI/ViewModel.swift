@@ -2,7 +2,7 @@
 //  ViewModel.swift
 //  
 //
-//  Created by SpringRole on 10/04/2020.
+//  Created by Shreyas Bangera on 10/04/2020.
 //
 
 import Foundation
@@ -11,24 +11,32 @@ open class ViewModel {
     public var startActivity: FinallyBlock = nil
     public var stopActivity: FinallyBlock = nil
     public var onError: ErrorBlock = nil
+    public var onRetryableError: ((Error, FinallyBlock, FinallyBlock) -> Void)? = nil
     private var requests = [String: Requester]()
-    private var token: NSObjectProtocol?
+    public var tokens = [NSObjectProtocol]()
     
     public init() {
-        token = NotificationCenter.observe(.networkChanged) { [weak self] in
-            guard ($0?[.isReachable]).boolValue else { return }
-            self?.requests.values.forEach { $0.start() }
-        }
+        tokens.append(
+            NotificationCenter.observe(.networkChanged) { [weak self] in
+                guard ($0?[.isReachable]).boolValue else { return }
+                self?.requests.values.forEach { $0.start() }
+            }
+        )
+    }
+    
+    public func networkUpdate() {
+        guard !ReachabilityManager.shared.isReachable else { return }
+        onError?(Errors.custom("The Internet connection appears to be offline", nil))
     }
     
     open func fetch() {}
     open func refresh() {}
     
-    public func request<T: Decodable>(_ request: Request<T>, shouldRetry: Bool = false, onSuccess: SuccessBlock<T> = nil, errorBlock: ErrorBlock = nil) {
-        let req = request.method.value + "_" + request.endpoint.value
+    public func request<T: Decodable>(_ request: Request<T>, shouldRetry: Bool = false, onSuccess: SuccessBlock<T> = nil, errorBlock: ErrorBlock = nil, finally: FinallyBlock = nil) {
+        let req = request.method.value + "_" + request.endpoint.value + (request.params.isNil ? "" : request.params!.map { "\($0.0)_\($0.1)"}.joined(separator: ","))
         if requests[req].isNil {
             requests[req] = .init { [weak self] in
-                if request.requestType == .blocking {
+                if request.requestType == .blocking, request.autoActivity {
                     self?.startActivity?()
                 }
                 T.request(
@@ -39,21 +47,25 @@ open class ViewModel {
                     mock: request.mock,
                     onSuccess: {
                         request.data?.value = $0
+                        if request.autoActivity { self?.stopActivity?() }
                         onSuccess?($0)
                         self?.requests.removeValue(forKey: req)
                     },
-                    onError: { errorBlock?($0) ?? self?.onError?($0) },
+                    onError: {
+                        if request.autoActivity { self?.stopActivity?() }
+                        errorBlock?($0) ?? self?.onError?($0)
+                    },
                     whenUnauthorized: { [weak self] in
                         (self as? SessionTokenProtocol)?.fetchSessionToken {
-                            self?.requests[req]?.start()
+                            self?.requests[req]?.restart()
                         }
                     },
                     finally: {
-                        self?.stopActivity?()
                         self?.requests[req]?.stop()
                         if !shouldRetry {
                             self?.requests.removeValue(forKey: req)
                         }
+                        finally?()
                     }
                 )
             }
@@ -89,7 +101,7 @@ open class ViewModel {
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(token!)
+        tokens.forEach { NotificationCenter.default.removeObserver($0) }
         log("\(#function) \(Self.self)")
     }
 }

@@ -1,8 +1,8 @@
 //
 //  Picker.swift
-//  
 //
-//  Created by SpringRole on 28/11/2019.
+//
+//  Created by Shreyas Bangera on 28/11/2019.
 //
 
 import UIKit
@@ -18,14 +18,15 @@ public class Picker<T: Valuable>: UIPickerView, UIPickerViewDataSource, UIPicker
     
     enum ViewType { case normal, accessory }
     
-    private let data: [T]
+    private let data: Dynamic<[T]>
     private var selectedItem: Dynamic<T>?
     private var selection: T?
     private let config: PickerConfig?
     private let viewType: ViewType
+    private let disposable = Disposable()
     
     @discardableResult
-    public init(_ data: [T], config: PickerConfig? = nil, textfield: UITextField? = nil, bindTo selectedItem: Dynamic<T>? = nil) {
+    public init(data: Dynamic<[T]>, config: PickerConfig? = nil, textfield: UITextField? = nil, bindTo selectedItem: Dynamic<T>? = nil, layout: @escaping Layout) {
         self.viewType = textfield.isNil ? .normal : .accessory
         self.data = data
         self.config = config
@@ -55,6 +56,14 @@ public class Picker<T: Valuable>: UIPickerView, UIPickerViewDataSource, UIPicker
         }
         textfield?.text = selectedItem?.value.value
         textfield?.tintColor = .clear
+        self.layout = layout
+        data.subscribe({ [weak self]_ in
+            self?.reloadAllComponents()
+        }, disposeWith: disposable)
+        guard let index = data.value.firstIndex(where: { $0.value == selection?.value }) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.selectRow(index, inComponent: 0, animated: false)
+        }
     }
     
     required init?(coder: NSCoder) {
@@ -66,19 +75,19 @@ public class Picker<T: Valuable>: UIPickerView, UIPickerViewDataSource, UIPicker
     }
     
     public func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        return data.count
+        return data.value.count
     }
     
     public func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        return data[row].value
+        return data.value[row].value
     }
     
     public func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         switch viewType {
         case .normal:
-            selectedItem?.value = data[row]
+            selectedItem?.value = data.value[row]
         case .accessory:
-            selection = data[row]
+            selection = data.value[row]
         }
     }
     
@@ -88,5 +97,6 @@ public class Picker<T: Valuable>: UIPickerView, UIPickerViewDataSource, UIPicker
     
     deinit {
         log("\(#function) \(Self.self)")
+        disposable.dispose()
     }
 }

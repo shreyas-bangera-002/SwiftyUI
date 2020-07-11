@@ -2,8 +2,8 @@
 //  UIKitExtensions.swift
 //  Plowz
 //
-//  Created by SpringRole on 08/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 08/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import UIKit
@@ -18,7 +18,6 @@ public struct StackConfig {
     let borderColor: UIColor
     let borderWidth: CGFloat
     let radius: CGFloat
-    let removeBuffer: Bool
     public static let zero = StackConfig()
     
     public init(color: UIColor = .clear,
@@ -36,7 +35,6 @@ public struct StackConfig {
         self.borderColor = borderColor
         self.borderWidth = borderWidth
         self.radius = radius
-        self.removeBuffer = removeBuffer
     }
 }
 
@@ -111,6 +109,14 @@ public extension UILabel {
         configure(style: style, isMultiline: isMultiline, alignment: alignment, layout: layout)
     }
     
+//    @discardableResult
+//    convenience init(style: Style, title: Dynamic<String?>?, isMultiline: Bool = false, alignment: NSTextAlignment = .natural, layout: Layout? = nil) {
+//        self.init(frame: .zero)
+//        setText(title?.value ?? "")
+//        title?.subscribe({ [weak self] in self?.setText($0) })
+//        configure(style: style, isMultiline: isMultiline, alignment: alignment, layout: layout)
+//    }
+    
     @discardableResult
     convenience init(style: Style, isMultiline: Bool = false, alignment: NSTextAlignment = .natural, layout: Layout? = nil) {
         self.init(frame: .zero)
@@ -158,7 +164,7 @@ extension UIImageView {
 }
 
 extension UITextField {
-    public convenience init(style: Style, text: String? = nil, placeholder: String? = nil, placeholderStyle: Style, keyboard: UIKeyboardType = .default, leftPadding: CGFloat = 0, layout: Layout? = nil) {
+    public convenience init(style: Style, text: String? = nil, placeholder: String? = nil, placeholderStyle: Style, keyboard: UIKeyboardType = .default, leftPadding: CGFloat = 0, onTextChange: SuccessBlock<String> = nil, layout: Layout? = nil) {
         self.init(frame: .zero)
         self.text = text
         textColor = style.color
@@ -174,6 +180,7 @@ extension UITextField {
             ])
         }
         self.layout = layout
+        on(.editingChanged) { onTextChange?($0.text.value) }
         addLeftPadding(leftPadding)
     }
     
@@ -281,13 +288,16 @@ public enum Position {
 }
 
 public extension UIButton {
-    static func create(_ style: Style,_ text: String? = nil, image: ImageNameable? = nil, height: CGFloat = 44, position: Position = .fill(0,0), alignment: ButtonAlignment? = nil, onTap: FinallyBlock = nil) -> UIButton {
+    static func create(_ style: Style,_ text: String? = nil, image: ImageNameable? = nil, width: CGFloat? = nil, height: CGFloat = 44, position: Position = .fill(0,0), alignment: ButtonAlignment? = nil, onTap: FinallyBlock = nil) -> UIButton {
         UIButton(
             style: style,
             title: text,
             image: image,
             alignment: alignment,
             layout: {
+                if let width = width {
+                    $0.width(width)
+                }
                 $0.height(height)
                 $0.addPosition(position)
             },
@@ -310,10 +320,16 @@ extension UIView {
         case .centerX:
             centerHorizontally()
         case .centerYFill:
-            centerVertically().top().bottom()
+            centerVertically().left().right()
         case let .left(val):
             left(val).top().bottom()
         }
+    }
+}
+
+public extension CGRect {
+    init(width: CGFloat = 0, height: CGFloat = 0) {
+        self.init(x: 0, y: 0, width: width, height: height)
     }
 }
 
@@ -323,8 +339,144 @@ public extension Data {
     }
 }
 
-public extension CGRect {
-    init(width: CGFloat = 0, height: CGFloat = 0) {
-        self.init(x: 0, y: 0, width: width, height: height)
+public class CustomTextView: UIView, UITextViewDelegate {
+    public var textChanged: SuccessBlock<String>
+    let placeholderLabel: UILabel
+    let textView = UITextView()
+    
+    public init(style: Style, text: String = "", placeholder: String = "", placeholderStyle: Style, layout: @escaping Layout, textChanged: SuccessBlock<String> = nil) {
+        self.textChanged = textChanged
+        placeholderLabel = UILabel(style: placeholderStyle, title: placeholder, isMultiline: true, layout: { $0.top(10).horizontal(10) })
+        super.init(frame: .zero)
+        textView.then {
+            $0.delegate = self
+            $0.font = style.font
+            $0.backgroundColor = style.bgColor
+            $0.textColor = style.color
+            $0.layout = { $0.fillContainer() }
+        }.add(to: self)
+        self.layout = layout
+        placeholderLabel.add(to: self)
+        setText(text)
+        clipsToBounds = true
+    }
+    
+    public func setText(_ text: String) {
+        textView.text = text
+        placeholderLabel.isHidden = !text.isEmpty
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    public func textViewDidChange(_ textView: UITextView) {
+        placeholderLabel.isHidden = !textView.text.isEmpty
+        textChanged?(textView.text)
+    }
+}
+
+public extension UIViewController {
+    
+    func add(_ child: UIViewController, view: UIView? = nil) {
+        addChild(child)
+        child.view.layout = { $0.fillContainer() }
+        (view ?? self.view).sv(child.view)
+        child.didMove(toParent: self)
+    }
+    
+    func remove() {
+        guard parent != nil else { return }
+        willMove(toParent: nil)
+        view.removeFromSuperview()
+        removeFromParent()
+    }
+    
+    func popToRoot() {
+        navigationController?.popToRootViewController(animated: true)
+    }
+    
+    func push(_ page: Pagetype, transition: Transition = .push) {
+        switch transition {
+        case .present:
+            navigationController?.view.layer.add(
+                CATransition().then {
+                    $0.duration = 0.3
+                    $0.type = CATransitionType.moveIn
+                    $0.subtype = CATransitionSubtype.fromTop
+                    $0.timingFunction = CAMediaTimingFunction(name:CAMediaTimingFunctionName.easeInEaseOut)
+            }, forKey: kCATransition)
+            navigationController?.pushViewController(page.controller.then {
+                $0.transition = transition
+                $0.hidesBottomBarWhenPushed = true
+            }, animated: false)
+        default:
+            navigationController?.pushViewController(page.controller.then {
+                $0.hidesBottomBarWhenPushed = true
+            }, animated: true)
+        }
+    }
+    
+    func pop(animated: Bool = true) {
+        guard let transition = (self as? BaseController)?.transition else {
+            navigationController?.popViewController(animated: animated)
+            return
+        }
+        switch transition {
+        case .present:
+            navigationController?.view.layer.add(
+                CATransition().then {
+                    $0.duration = 0.3
+                    $0.type = CATransitionType.reveal
+                    $0.subtype = CATransitionSubtype.fromBottom
+                    $0.timingFunction = CAMediaTimingFunction(name:CAMediaTimingFunctionName.easeInEaseOut)
+            }, forKey: kCATransition)
+            navigationController?.popViewController(animated: false)
+        default:
+            navigationController?.popViewController(animated: animated)
+        }
+    }
+    
+    func showOverlay(_ page: Pagetype, modalTransitionStyle: UIModalTransitionStyle = .coverVertical) {
+        present(page.controller.then { controller in
+            controller.modalPresentationStyle = .overCurrentContext
+            controller.modalTransitionStyle = modalTransitionStyle
+        }, animated: true, completion: nil)
+    }
+    
+    func showOverlay(_ controller: UIViewController, modalTransitionStyle: UIModalTransitionStyle = .coverVertical) {
+        present(controller.then { controller in
+            controller.modalPresentationStyle = .overCurrentContext
+            controller.modalTransitionStyle = modalTransitionStyle
+        }, animated: true, completion: nil)
+    }
+    
+    func present(_ page: Pagetype, delegate: Delegate? = nil) {
+        present(page.controller.then {
+            $0.delegate = delegate
+        }, animated: true, completion: nil)
+    }
+    
+    func present(_ controller: UIViewController?) {
+        guard let controller = controller else { return }
+        present(controller, animated: true, completion: nil)
+    }
+    
+    func popTo<T: UIViewController>(_ controllerType: T.Type, animated: Bool) {
+        guard let controller = navigationController?.viewControllers.first(where: { $0 is T }) else { return }
+        navigationController?.popToViewController(controller, animated: animated)
+    }
+    
+    func dismiss(_ animated: Bool = true, completion: FinallyBlock = nil) {
+        if let vc = self as? ViewController {
+            vc.disposable.dispose()
+        }
+        dismiss(animated: animated, completion: completion)
+    }
+}
+
+public extension UINavigationController {
+    func pushController(_ page: Pagetype) {
+        pushViewController(page.controller.then { $0.hidesBottomBarWhenPushed = true }, animated: true)
     }
 }

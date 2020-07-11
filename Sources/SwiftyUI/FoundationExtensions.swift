@@ -2,8 +2,8 @@
 //  FoundationExtensions.swift
 //  Plowz
 //
-//  Created by SpringRole on 07/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 07/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import Foundation
@@ -42,18 +42,32 @@ public extension Array {
 public extension Optional {
     var isNil: Bool { self == nil }
     var boolValue: Bool { (self as? Bool) == true }
+    var stringValue: String { (self as? String) ?? "" }
 }
 
 public extension Optional where Wrapped == String {
     var value: String { self ?? "" }
+    var isEmptyOrNil: Bool { self?.isEmpty ?? true }
 }
 
 public extension Optional where Wrapped == Bool {
     var value: Bool { self ?? false }
+    
+    mutating func toggle() {
+        if isNil || self == false {
+            self = true
+        } else {
+            self = false
+        }
+    }
 }
 
 public extension Optional where Wrapped == Double {
     var value: Double { self ?? 0 }
+}
+
+public extension Optional where Wrapped == Dictionary<String, Any> {
+    var value: Dictionary<String, Any> { self ?? [:] }
 }
 
 public extension Int {
@@ -68,6 +82,10 @@ public extension String {
     func capitalizeFirstLetter() -> String {
         return prefix(1).uppercased() + dropFirst()
     }
+    var isValidEmail: Bool {
+        NSPredicate(format:"SELF MATCHES %@", "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}").evaluate(with: self)
+    }
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
 public extension Dictionary {
@@ -150,4 +168,29 @@ extension Array: Diffable where Element: Diffable {
         guard value?.count == count else { return true }
         return enumerated().map({ true == $0.1.hasDiff(value?[$0.0]) }).reduce(false, { $0 || $1 })
     }
+}
+
+public extension Bundle {
+    static var version: String { (Bundle.main.infoDictionary?["CFBundleShortVersionString"]).stringValue }
+    static var buildNumber: String { (Bundle.main.infoDictionary?["CFBundleVersion"]).stringValue }
+}
+
+public extension Dictionary where Key == String, Value == String {
+    mutating func add(_ dict: [String: String], when condition: Bool) {
+        guard condition else { return }
+        self = self + dict
+    }
+}
+
+public extension Date {
+    func adding(_ component: Calendar.Component, value: Int) -> Date {
+        Calendar.current.date(byAdding: component, value: value, to: self)!
+    }
+    func isLTE(_ date: Date) -> Bool {
+        [.orderedAscending, .orderedSame].contains(Calendar.current.compare(self, to: date, toGranularity: .day))
+    }
+}
+
+public protocol Pagetype {
+    var controller: BaseController { get }
 }

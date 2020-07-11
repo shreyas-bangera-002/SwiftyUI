@@ -2,8 +2,8 @@
 //  Constants.swift
 //  Consumer
 //
-//  Created by SpringRole on 15/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 15/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import Foundation

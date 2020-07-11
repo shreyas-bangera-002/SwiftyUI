@@ -2,8 +2,8 @@
 //  ReachabilityManager.swift
 //  Plowz
 //
-//  Created by SpringRole on 14/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 14/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import Foundation
@@ -45,6 +45,7 @@ public extension NotificationCenter {
 
 public extension NSNotification.Name {
     static let networkChanged = NSNotification.Name("networkChanged")
+    static let dismissRetry = NSNotification.Name("dismissRetry")
 }
 
 public typealias NotificationInfo = [NotificationInfoType: Any]?

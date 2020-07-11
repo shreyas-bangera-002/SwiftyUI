@@ -2,24 +2,19 @@
 //  API.swift
 //  Plowz
 //
-//  Created by SpringRole on 07/11/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 07/11/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import UIKit
 import AdSupport
 
+public struct Empty: Codable {}
 public typealias Params = [String: Any]
 public typealias Headers = [String: String]
 public typealias ErrorBlock = ((Error) -> Void)?
 public typealias FinallyBlock = (() -> Void)?
 public typealias SuccessBlock<T> = ((T) -> Void)?
-
-public protocol AuthorizationProtocol {
-    var sessionToken: String { get }
-    var id: String { get }
-    var idType: String { get }
-}
 
 public struct EmptyResponse: Codable {
     init?(json: Any) {
@@ -32,20 +27,20 @@ public struct SessionToken: Codable {
 }
 
 public enum MethodType: String {
-    case get, post, put, delete
+    case get, post, put, delete, patch
     var value: String { rawValue.uppercased() }
 }
 
 public enum Errors: LocalizedError, Equatable {
     case emptyData, unknownError
-    case custom(String?, Int?)
+    case custom(String?, Int? = nil)
     
     public var errorDescription: String? {
         switch self {
         case .emptyData:
             return "No Content"
         case .unknownError:
-            return "Looks like something went wrong!"
+            return "Looks like something went wrong, Please try again or contact customer support for help"
         case let .custom(error, _):
             return error ?? Errors.unknownError.errorDescription
         }
@@ -94,7 +89,7 @@ public class API<T: Decodable> {
             switch methodType {
             case .get, .delete:
                 urlString += params.queryParams
-            case .post, .put:
+            case .post, .put, .patch:
                 httpBody = params.serialized
             }
         }
@@ -122,7 +117,7 @@ public class API<T: Decodable> {
                 }
                 switch response.statusCode {
                 case 401:
-                    DispatchQueue.main.async { whenUnauthorized?(); finally?() }
+                    DispatchQueue.main.async { whenUnauthorized?(); }
                 case 300...600:
                     DispatchQueue.main.async {
                         onError?(Errors.custom(data?.serializedMessage, response.statusCode))
@@ -137,9 +132,14 @@ public class API<T: Decodable> {
                     }
                     do {
                         log("Response: ", data.serialized ?? "empty")
-                        let model = try JSONDecoder().decode(T.self, from: data)
-                        if Constants.shared.isCachingEnabled {
-                            URLCache.shared.storeCachedResponse(.init(response: response, data: data), for: request)
+                        let model: T
+                        if T.self is Empty.Type {
+                            model = Empty() as! T
+                        } else {
+                            model = try JSONDecoder().decode(T.self, from: data)
+                            if Constants.shared.isCachingEnabled {
+                                URLCache.shared.storeCachedResponse(.init(response: response, data: data), for: request)
+                            }
                         }
                         DispatchQueue.main.async { onSuccess?(model); finally?() }
                     } catch let error {
@@ -158,15 +158,17 @@ public class Upload: NSObject, URLSessionTaskDelegate {
     var onSuccess: FinallyBlock = nil
     var onError: ErrorBlock = nil
     var finally: FinallyBlock = nil
+    var cleanup: FinallyBlock = nil
+    var id = ""
     
     public func execute(_ endpoint: EndpointType,
                         images: [ImageModel],
                         id: String,
                         json: String? = nil,
-                        source: String,
                         onSuccess: FinallyBlock = nil,
                         onError: ErrorBlock = nil,
-                        finally: FinallyBlock = nil) {
+                        finally: FinallyBlock = nil,
+                        cleanup: FinallyBlock = nil) {
         guard let url = URL(string: endpoint.value) else { return }
         let boundary = String(repeating: "-", count: 20) + UUID().uuidString + "\(Int(Date.timeIntervalSinceReferenceDate))"
         var request = URLRequest(url: url)
@@ -186,21 +188,29 @@ public class Upload: NSObject, URLSessionTaskDelegate {
             data.append($0.image)
         }
         data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-        let localURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("images")
+        self.id = id
+        let localURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("images_\(id)")
         try? data.write(to: localURL)
         self.onSuccess = onSuccess
         self.onError = onError
         self.finally = finally
+        self.cleanup = cleanup
         session.uploadTask(with: request, fromFile: localURL).resume()
     }
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error = error {
-            onError?(error)
-        } else {
-            onSuccess?()
+        DispatchQueue.main.async { [weak self] in self?.finally?() }
+        guard let statusCode = task.response?.httpUrlResponse?.statusCode else {
+            DispatchQueue.main.async { [weak self] in self?.onError?(error ?? Errors.custom("Something went wrong", nil)) }
+            return
         }
-        finally?()
+        if (200..<300).contains(statusCode) {
+            let localURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("images_\(id)")
+            try? FileManager.default.removeItem(at: localURL)
+            DispatchQueue.main.async { [weak self] in self?.onSuccess?(); self?.cleanup?() }
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.onError?(error ?? Errors.custom("Something went wrong", statusCode)); self?.cleanup?() }
+        }
     }
 }
 
@@ -227,10 +237,10 @@ public extension Decodable {
     }
 }
 
-fileprivate extension Dictionary where Key == String, Value == Any {
+public extension Dictionary where Key == String, Value: Any {
     var queryParams: String {
         isEmpty ? "" : ("?" + compactMap {
-            guard let value = ($0.value as? String)?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+            guard let value = "\($0.value)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
             return $0.key + "=" + value
         }.joined(separator: "&"))
     }
@@ -256,7 +266,7 @@ extension URLResponse {
     var httpUrlResponse: HTTPURLResponse? { self as? HTTPURLResponse }
 }
 
-fileprivate extension Dictionary {
+public extension Dictionary {
     var serialized: Data? {
         try? JSONSerialization.data(withJSONObject: self, options: [])
     }
@@ -277,7 +287,7 @@ fileprivate extension URLRequest {
                        "App-Version" : (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)!,
                        "Timezone" : TimeZone.current.identifier,
                        "IDFA": myIDFA,
-                       "IDFV": strIDFV,
+                       "IDFV": strIDFV
         ]
         if let auth = (self as? AuthorizationProtocol) {
             headers["Authorization"] = "Bearer " + auth.sessionToken
@@ -288,4 +298,10 @@ fileprivate extension URLRequest {
         }
         headers.forEach { addValue($0.1, forHTTPHeaderField: $0.0) }
     }
+}
+
+public protocol AuthorizationProtocol {
+    var sessionToken: String { get }
+    var id: String { get }
+    var idType: String { get }
 }

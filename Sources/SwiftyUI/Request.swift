@@ -2,7 +2,7 @@
 //  Request.swift
 //  
 //
-//  Created by SpringRole on 10/04/2020.
+//  Created by Shreyas Bangera on 10/04/2020.
 //
 
 import Foundation
@@ -18,6 +18,7 @@ public struct Request<T: Decodable> {
     let endpoint: EndpointType
     var data: Dynamic<T>?
     var mock: Bool
+    var autoActivity: Bool
     
     public init(type: T.Type,
                 method: MethodType,
@@ -26,7 +27,8 @@ public struct Request<T: Decodable> {
                 params: Params? = nil,
                 endpoint: EndpointType,
                 data: Dynamic<T>? = nil,
-                mock: Bool = false) {
+                mock: Bool = false,
+                autoActivity: Bool = true) {
         self.type = type
         self.method = method
         self.requestType = requestType
@@ -35,6 +37,7 @@ public struct Request<T: Decodable> {
         self.endpoint = endpoint
         self.data = data
         self.mock = mock
+        self.autoActivity = autoActivity
     }
 }
 
@@ -85,6 +88,11 @@ public class Requester {
         guard status == .inactive else { return }
         status = .active
         exec()
+    }
+    
+    public func restart() {
+        status = .inactive
+        start()
     }
     
     public func stop() {

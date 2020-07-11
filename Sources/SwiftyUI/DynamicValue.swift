@@ -2,7 +2,7 @@
 //  DynamicValue.swift
 //  
 //
-//  Created by SpringRole on 10/04/2020.
+//  Created by Shreyas Bangera on 10/04/2020.
 //
 
 import Foundation
@@ -17,7 +17,9 @@ public class Dynamic<T> {
         willSet {
             guard canUpdate else { canUpdate.toggle(); return }
             DispatchQueue.main.async { [weak self] in
-                self?.observers.forEach { $1?(newValue) }
+                guard let self = self else { return }
+                log("Observers: \(self.observers.count), value: \(T.Type.self)")
+                self.observers.forEach { $1?(newValue) }
             }
         }
     }
@@ -29,10 +31,11 @@ public class Dynamic<T> {
     public func subscribe(_ observer: SuccessBlock<T>, disposeWith disposable: Disposable) {
         index += 1
         observers[index] = observer
-        disposable.onDispose = { [weak self] in
+        disposable.bag.append({ [weak self] in
             guard let self = self else { return }
             self.observers.removeValue(forKey: self.index)
-        }
+            log("dispose Observers: \(self.observers.count), value: \(T.Type.self)")
+        })
     }
     
     public func updateAndSubscribe(_ observer: SuccessBlock<T>, disposeWith disposable: Disposable) {
@@ -54,7 +57,7 @@ public class Dynamic<T> {
         guard var value = value as? Array<Any> else { return }
         value.remove(at: index)
         onRemove?(index)
-        canUpdate.toggle()
+//        canUpdate.toggle()
         self.value = value as! T
     }
     
@@ -65,9 +68,9 @@ public class Dynamic<T> {
 }
 
 public class Disposable {
-    var onDispose: FinallyBlock = nil
+    var bag = [FinallyBlock]()
     public init() {}
     public func dispose() {
-        onDispose?()
+        bag.forEach { $0?() }
     }
 }

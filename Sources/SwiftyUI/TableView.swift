@@ -2,8 +2,8 @@
 //  TableView.swift
 //  Plowz & Mowz
 //
-//  Created by SpringRole on 24/10/2019.
-//  Copyright © 2019 SpringRole. All rights reserved.
+//  Created by Shreyas Bangera on 24/10/2019.
+//  Copyright © 2019 Shreyas Bangera. All rights reserved.
 //
 
 import UIKit
@@ -27,13 +27,18 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
     public var didDeSelect: ((TableView<Section,Item>, ListItem<Item>) -> Void)?
     public var header: ((TableView<Section,Item>, Int, Section) -> UIView?)?
     public var footer: ((TableView<Section,Item>, Int, Section) -> UIView?)?
+    public var height: ((ListItem<Item>) -> CGFloat)?
     public var headerHeight: ((Int) -> CGFloat)?
     public var footerHeight: ((Int) -> CGFloat)?
     public var configureCell: ((TableView<Section,Item>, ListItem<Item>) -> UITableViewCell)?
     public var canEdit: ((TableView<Section,Item>, ListItem<Item>) -> Bool)?
     var dynamicData: Dynamic<[Item]>?
-    public var onDelete: FinallyBlock = nil
-
+    public var onDelete: ((TableView<Section,Item>, ListItem<Item>) -> Void)?
+    private var index = -1 {
+        willSet { updateSelectedState(index, newValue) }
+    }
+    public var selectWhen: (([Item]) -> Int?)?
+    
     public init(_ data: Dynamic<[Item]>? = nil, closure: (TableView<Section,Item>) -> Void) {
         super.init(frame: .zero, style: .plain)
         separatorStyle = .none
@@ -67,12 +72,20 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
             let cell = configureCell?(self, .init(index: indexPath, item: item)) else {
                 return UITableViewCell()
         }
-        return cell
+        return cell.then {
+            ($0 as? TableViewCell)?.select = index == indexPath.row
+        }
     }
     
     public func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let item = data[indexPath.section].items?[indexPath.row] else { return }
         didSelect?(self, .init(index: indexPath, item: item))
+        index = indexPath.row
+    }
+    
+    private func updateSelectedState(_ deselect: Int, _ select: Int) {
+        (cellForRow(at: IndexPath(item: deselect, section: 0)) as? TableViewCell)?.select = false
+        (cellForRow(at: IndexPath(item: select, section: 0)) as? TableViewCell)?.select = true
     }
     
     public func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
@@ -81,7 +94,8 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
     }
     
     public func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
+        guard let item = data[indexPath.section].items?[indexPath.row] else { return UITableView.automaticDimension }
+        return height?(.init(index: indexPath, item: item)) ?? UITableView.automaticDimension
     }
     
     //https://stackoverflow.com/questions/28244475/reloaddata-of-uitableview-with-dynamic-cell-heights-causes-jumpy-scrolling
@@ -118,11 +132,22 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
         return canEdit?(self, .init(index: indexPath, item: item)) ?? false
     }
     
+//    public func tableView(_ tableView: UITableView, editActionsForRowAt indexPath: IndexPath) -> [UITableViewRowAction]? {
+//        let delete = UITableViewRowAction(style: .destructive, title: "Delete") { [weak self] (action, indexPath) in
+//            guard let item = self?.data[indexPath.section].items?[indexPath.row] else { return }
+//            self?.onDelete?(.init(index: indexPath, item: item))
+//        }
+//        return [delete]
+//    }
+    
     public func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            dynamicData?.remove(at: indexPath.row)
-            onDelete?()
+        if editingStyle == .delete, let item = data[indexPath.section].items?[indexPath.row] {
+            onDelete?(self, .init(index: indexPath, item: item))
         }
+    }
+    
+    public func delete(_ indexPath: IndexPath) {
+        dynamicData?.remove(at: indexPath.row)
     }
     
     public func update(_ sections: [Section?] = .empty, items: [[Item]?] = .empty) {
@@ -132,6 +157,11 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
         original = list
         data = List.dataSource(sections: sections, items: isExpanded.enumerated().map { $1 == true ? items[$0] : .empty })
         reloadData()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let items = self?.data.first?.items else { return }
+            guard let index = self?.selectWhen?(items) else { return }
+            self?.index = index
+        }
     }
     
     public func toggle(_ section: Int) {
@@ -167,6 +197,10 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
         deleteRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
     }
     
+    public func toggleEditMode() {
+        setEditing(!isEditing, animated: true)
+    }
+    
     deinit {
         disposable.dispose()
     }
@@ -175,6 +209,14 @@ public class TableView<Section: Expandable,Item>: UITableView, UITableViewDataSo
 open class TableViewCell: UITableViewCell {
     
     public let disposable = Disposable()
+    
+    var select = false {
+        willSet {
+            onSelect?(newValue)
+        }
+    }
+    
+    public var onSelect: SuccessBlock<Bool> = nil
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
