@@ -414,11 +414,11 @@ extension UIView {
     }
     
     @discardableResult
-    public func shadow(color: UIColor = .black, opacity: Float = 0.1, shadowOffset: CGSize = .zero, shadowRadius: CGFloat = 0) -> Self {
+    public func shadow(color: UIColor = .black, opacity: Float = 0.1, offset: CGSize = .zero, radius: CGFloat = 0) -> Self {
         layer.shadowColor = color.cgColor
         layer.shadowOpacity = opacity
-        layer.shadowOffset = shadowOffset
-        layer.shadowRadius = shadowRadius
+        layer.shadowOffset = offset
+        layer.shadowRadius = radius
         return self
     }
     
