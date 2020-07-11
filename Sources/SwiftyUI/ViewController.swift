@@ -231,9 +231,7 @@ open class ViewController<T: ViewModel>: BaseController, UIImagePickerController
         activityIndicator.stopAnimating()
     }
     
-    open func setupNavigationBar() {
-        navigationController?.isNavigationBarHidden = true
-    }
+    open func setupNavigationBar() {}
     
     open func setupVM() {}
     open func render() {}
